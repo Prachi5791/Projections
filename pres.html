@@ -1,0 +1,739 @@
+<!-- <!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Fixed View Perspective Visualization</title>
+    <style>
+      body {
+        margin: 0;
+        overflow: hidden;
+        font-family: Arial, sans-serif;
+      }
+      #canvas {
+        width: 100%;
+        height: 100%;
+        display: block;
+      }
+      #controls {
+        position: absolute;
+        top: 10px;
+        left: 10px;
+        background: rgba(255, 255, 255, 0.7);
+        padding: 10px;
+        border-radius: 5px;
+      }
+      button {
+        margin: 5px;
+        padding: 8px 12px;
+        cursor: pointer;
+      }
+      .active-button {
+        background-color: #4caf50;
+        color: white;
+      }
+      #instructions {
+        position: absolute;
+        bottom: 10px;
+        left: 10px;
+        background: rgba(255, 255, 255, 0.7);
+        padding: 10px;
+        border-radius: 5px;
+      }
+    </style>
+  </head>
+  <body>
+    <div id="controls">
+      <h3>Perspective Type</h3>
+      <button id="one-point" class="active-button">One-Point</button>
+      <button id="two-point">Two-Point</button>
+      <button id="three-point">Three-Point</button>
+      <h3>Vanishing Points</h3>
+      <button id="reset-vps">Reset Vanishing Points</button>
+      <div>
+        <p>Drag sliders to adjust vanishing points:</p>
+        <div>
+          <label for="vp1-x">VP1 X: </label>
+          <input type="range" id="vp1-x" min="-500" max="500" value="300" />
+          <span id="vp1-x-value">300</span>
+        </div>
+        <div>
+          <label for="vp1-y">VP1 Y: </label>
+          <input type="range" id="vp1-y" min="-500" max="500" value="0" />
+          <span id="vp1-y-value">0</span>
+        </div>
+        <div id="vp2-controls" style="display: none">
+          <label for="vp2-x">VP2 X: </label>
+          <input type="range" id="vp2-x" min="-500" max="500" value="-300" />
+          <span id="vp2-x-value">-300</span>
+        </div>
+        <div id="vp2-controls-y" style="display: none">
+          <label for="vp2-y">VP2 Y: </label>
+          <input type="range" id="vp2-y" min="-500" max="500" value="0" />
+          <span id="vp2-y-value">0</span>
+        </div>
+        <div id="vp3-controls" style="display: none">
+          <label for="vp3-x">VP3 X: </label>
+          <input type="range" id="vp3-x" min="-500" max="500" value="0" />
+          <span id="vp3-x-value">0</span>
+        </div>
+        <div id="vp3-controls-y" style="display: none">
+          <label for="vp3-y">VP3 Y: </label>
+          <input type="range" id="vp3-y" min="-500" max="500" value="300" />
+          <span id="vp3-y-value">300</span>
+        </div>
+      </div>
+    </div>
+    <div id="instructions">
+      <p>
+        Use the sliders to adjust vanishing points and observe how the cube's
+        perspective changes
+      </p>
+    </div>
+    <canvas id="canvas"></canvas>
+
+    <script type="importmap">
+      {
+        "imports": {
+          "three": "https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.module.js"
+        }
+      }
+    </script>
+
+    <script type="module">
+      import * as THREE from "three";
+
+      // Scene setup
+      const scene = new THREE.Scene();
+      scene.background = new THREE.Color(0xf0f0f0);
+
+      // Camera setup - fixed orthographic camera for 2D-like view
+      const width = window.innerWidth;
+      const height = window.innerHeight;
+      const camera = new THREE.OrthographicCamera(
+        width / -2,
+        width / 2,
+        height / 2,
+        height / -2,
+        1,
+        1000
+      );
+      camera.position.set(0, 0, 50);
+      camera.lookAt(0, 0, 0);
+
+      // Renderer setup
+      const renderer = new THREE.WebGLRenderer({
+        canvas: document.getElementById("canvas"),
+        antialias: true,
+      });
+      renderer.setSize(window.innerWidth, window.innerHeight);
+      renderer.setPixelRatio(window.devicePixelRatio);
+
+      // Initial variables for the cube
+      let perspectiveType = "one-point";
+      let vanishingPoints = {
+        vp1: { x: 300, y: 0 },
+        vp2: { x: -300, y: 0 },
+        vp3: { x: 0, y: 300 },
+      };
+
+      // Create the scene
+      const cubeGroup = new THREE.Group();
+      scene.add(cubeGroup);
+
+      // Main drawing function
+      function drawPerspectiveScene() {
+        // Clear previous objects
+        while (cubeGroup.children.length > 0) {
+          cubeGroup.remove(cubeGroup.children[0]);
+        }
+
+        // Draw based on perspective type
+        if (perspectiveType === "one-point") {
+          drawOnePointPerspective();
+        } else if (perspectiveType === "two-point") {
+          drawTwoPointPerspective();
+        } else if (perspectiveType === "three-point") {
+          drawThreePointPerspective();
+        }
+
+        // Draw vanishing points
+        drawVanishingPoints();
+      }
+
+      function drawVanishingPoints() {
+        // Draw VP1
+        const vp1Geometry = new THREE.CircleGeometry(10, 32);
+        const vp1Material = new THREE.MeshBasicMaterial({ color: 0xff0000 });
+        const vp1 = new THREE.Mesh(vp1Geometry, vp1Material);
+        vp1.position.set(vanishingPoints.vp1.x, vanishingPoints.vp1.y, 0);
+        cubeGroup.add(vp1);
+
+        // Draw VP2 (if needed)
+        if (
+          perspectiveType === "two-point" ||
+          perspectiveType === "three-point"
+        ) {
+          const vp2Geometry = new THREE.CircleGeometry(10, 32);
+          const vp2Material = new THREE.MeshBasicMaterial({ color: 0x00ff00 });
+          const vp2 = new THREE.Mesh(vp2Geometry, vp2Material);
+          vp2.position.set(vanishingPoints.vp2.x, vanishingPoints.vp2.y, 0);
+          cubeGroup.add(vp2);
+        }
+
+        // Draw VP3 (if needed)
+        if (perspectiveType === "three-point") {
+          const vp3Geometry = new THREE.CircleGeometry(10, 32);
+          const vp3Material = new THREE.MeshBasicMaterial({ color: 0x0000ff });
+          const vp3 = new THREE.Mesh(vp3Geometry, vp3Material);
+          vp3.position.set(vanishingPoints.vp3.x, vanishingPoints.vp3.y, 0);
+          cubeGroup.add(vp3);
+        }
+      }
+
+      function drawOnePointPerspective() {
+        // Define cube parameters
+        const frontFaceWidth = 150;
+        const frontFaceHeight = 150;
+        const centerX = 0;
+        const centerY = 0;
+
+        // Calculate front face corners
+        const frontTopLeft = {
+          x: centerX - frontFaceWidth / 2,
+          y: centerY - frontFaceHeight / 2,
+        };
+        const frontTopRight = {
+          x: centerX + frontFaceWidth / 2,
+          y: centerY - frontFaceHeight / 2,
+        };
+        const frontBottomRight = {
+          x: centerX + frontFaceWidth / 2,
+          y: centerY + frontFaceHeight / 2,
+        };
+        const frontBottomLeft = {
+          x: centerX - frontFaceWidth / 2,
+          y: centerY + frontFaceHeight / 2,
+        };
+
+        // Calculate how far back lines should go (between front face and vanishing point)
+        const vpX = vanishingPoints.vp1.x;
+        const vpY = vanishingPoints.vp1.y;
+
+        // Calculate back face corners based on lines from front corners to vanishing point
+        // We'll use a scaling factor to determine where to stop
+        const scaleFactor = 0.7;
+
+        // Calculate direction vectors from corners to vanishing point
+        const dirTopLeft = {
+          x: vpX - frontTopLeft.x,
+          y: vpY - frontTopLeft.y,
+        };
+        const dirTopRight = {
+          x: vpX - frontTopRight.x,
+          y: vpY - frontTopRight.y,
+        };
+        const dirBottomRight = {
+          x: vpX - frontBottomRight.x,
+          y: vpY - frontBottomRight.y,
+        };
+        const dirBottomLeft = {
+          x: vpX - frontBottomLeft.x,
+          y: vpY - frontBottomLeft.y,
+        };
+
+        // Calculate back corners
+        const backTopLeft = {
+          x: frontTopLeft.x + dirTopLeft.x * scaleFactor,
+          y: frontTopLeft.y + dirTopLeft.y * scaleFactor,
+        };
+        const backTopRight = {
+          x: frontTopRight.x + dirTopRight.x * scaleFactor,
+          y: frontTopRight.y + dirTopRight.y * scaleFactor,
+        };
+        const backBottomRight = {
+          x: frontBottomRight.x + dirBottomRight.x * scaleFactor,
+          y: frontBottomRight.y + dirBottomRight.y * scaleFactor,
+        };
+        const backBottomLeft = {
+          x: frontBottomLeft.x + dirBottomLeft.x * scaleFactor,
+          y: frontBottomLeft.y + dirBottomLeft.y * scaleFactor,
+        };
+
+        // Draw front face
+        drawLine(frontTopLeft, frontTopRight);
+        drawLine(frontTopRight, frontBottomRight);
+        drawLine(frontBottomRight, frontBottomLeft);
+        drawLine(frontBottomLeft, frontTopLeft);
+
+        // Draw back face
+        drawLine(backTopLeft, backTopRight);
+        drawLine(backTopRight, backBottomRight);
+        drawLine(backBottomRight, backBottomLeft);
+        drawLine(backBottomLeft, backTopLeft);
+
+        // Draw connecting edges
+        drawLine(frontTopLeft, backTopLeft);
+        drawLine(frontTopRight, backTopRight);
+        drawLine(frontBottomRight, backBottomRight);
+        drawLine(frontBottomLeft, backBottomLeft);
+
+        // Draw perspective lines to vanishing point
+        drawDashedLine(frontTopLeft, { x: vpX, y: vpY });
+        drawDashedLine(frontTopRight, { x: vpX, y: vpY });
+        drawDashedLine(frontBottomRight, { x: vpX, y: vpY });
+        drawDashedLine(frontBottomLeft, { x: vpX, y: vpY });
+      }
+
+      function drawTwoPointPerspective() {
+        // In two-point, the front vertical edge is centered
+        const centerY = 0;
+        const centerX = 0;
+        const height = 150;
+
+        // Define vertical edge positions
+        const topMiddle = { x: centerX, y: centerY - height / 2 };
+        const bottomMiddle = { x: centerX, y: centerY + height / 2 };
+
+        // Get vanishing points
+        const vp1X = vanishingPoints.vp1.x;
+        const vp1Y = vanishingPoints.vp1.y;
+        const vp2X = vanishingPoints.vp2.x;
+        const vp2Y = vanishingPoints.vp2.y;
+
+        // Calculate how far lines should go towards each vanishing point
+        const scaleFactor = 0.3;
+
+        // Calculate direction vectors
+        const dirTopToVP1 = {
+          x: vp1X - topMiddle.x,
+          y: vp1Y - topMiddle.y,
+        };
+        const dirTopToVP2 = {
+          x: vp2X - topMiddle.x,
+          y: vp2Y - topMiddle.y,
+        };
+        const dirBottomToVP1 = {
+          x: vp1X - bottomMiddle.x,
+          y: vp1Y - bottomMiddle.y,
+        };
+        const dirBottomToVP2 = {
+          x: vp2X - bottomMiddle.x,
+          y: vp2Y - bottomMiddle.y,
+        };
+
+        // Calculate corner positions
+        const topRight = {
+          x: topMiddle.x + dirTopToVP1.x * scaleFactor,
+          y: topMiddle.y + dirTopToVP1.y * scaleFactor,
+        };
+        const topLeft = {
+          x: topMiddle.x + dirTopToVP2.x * scaleFactor,
+          y: topMiddle.y + dirTopToVP2.y * scaleFactor,
+        };
+        const bottomRight = {
+          x: bottomMiddle.x + dirBottomToVP1.x * scaleFactor,
+          y: bottomMiddle.y + dirBottomToVP1.y * scaleFactor,
+        };
+        const bottomLeft = {
+          x: bottomMiddle.x + dirBottomToVP2.x * scaleFactor,
+          y: bottomMiddle.y + dirBottomToVP2.y * scaleFactor,
+        };
+
+        // Calculate back corners
+        const scaleFactor2 = 0.6;
+        const backTopRight = {
+          x: topRight.x + dirTopToVP2.x * scaleFactor2,
+          y: topRight.y + dirTopToVP2.y * scaleFactor2,
+        };
+        const backTopLeft = {
+          x: topLeft.x + dirTopToVP1.x * scaleFactor2,
+          y: topLeft.y + dirTopToVP1.y * scaleFactor2,
+        };
+        const backBottomRight = {
+          x: bottomRight.x + dirBottomToVP2.x * scaleFactor2,
+          y: bottomRight.y + dirBottomToVP2.y * scaleFactor2,
+        };
+        const backBottomLeft = {
+          x: bottomLeft.x + dirBottomToVP1.x * scaleFactor2,
+          y: bottomLeft.y + dirBottomToVP1.y * scaleFactor2,
+        };
+
+        // Draw front edges
+        drawLine(topMiddle, bottomMiddle);
+        drawLine(topMiddle, topRight);
+        drawLine(topMiddle, topLeft);
+        drawLine(bottomMiddle, bottomRight);
+        drawLine(bottomMiddle, bottomLeft);
+        drawLine(topRight, bottomRight);
+        drawLine(topLeft, bottomLeft);
+
+        // Draw back edges
+        drawLine(backTopRight, backBottomRight);
+        drawLine(backTopLeft, backBottomLeft);
+        drawLine(backTopRight, backTopLeft);
+        drawLine(backBottomRight, backBottomLeft);
+
+        // Draw connecting edges
+        drawLine(topRight, backTopRight);
+        drawLine(topLeft, backTopLeft);
+        drawLine(bottomRight, backBottomRight);
+        drawLine(bottomLeft, backBottomLeft);
+
+        // Draw perspective lines
+        drawDashedLine(topMiddle, { x: vp1X, y: vp1Y });
+        drawDashedLine(bottomMiddle, { x: vp1X, y: vp1Y });
+        drawDashedLine(topRight, { x: vp1X, y: vp1Y });
+        drawDashedLine(bottomRight, { x: vp1X, y: vp1Y });
+
+        drawDashedLine(topMiddle, { x: vp2X, y: vp2Y });
+        drawDashedLine(bottomMiddle, { x: vp2X, y: vp2Y });
+        drawDashedLine(topLeft, { x: vp2X, y: vp2Y });
+        drawDashedLine(bottomLeft, { x: vp2X, y: vp2Y });
+      }
+
+      function drawThreePointPerspective() {
+        // In three-point, we'll have three vanishing points
+        const centerX = 0;
+        const centerY = 0;
+
+        // Get vanishing points
+        const vp1X = vanishingPoints.vp1.x;
+        const vp1Y = vanishingPoints.vp1.y;
+        const vp2X = vanishingPoints.vp2.x;
+        const vp2Y = vanishingPoints.vp2.y;
+        const vp3X = vanishingPoints.vp3.x;
+        const vp3Y = vanishingPoints.vp3.y;
+
+        // Define initial central point
+        const center = { x: centerX, y: centerY };
+
+        // Calculate direction vectors to each vanishing point
+        const dirToVP1 = { x: vp1X - center.x, y: vp1Y - center.y };
+        const dirToVP2 = { x: vp2X - center.x, y: vp2Y - center.y };
+        const dirToVP3 = { x: vp3X - center.x, y: vp3Y - center.y };
+
+        // Scaling factors for drawing edges
+        const scaleFactor1 = 0.3;
+        const scaleFactor2 = 0.3;
+        const scaleFactor3 = 0.3;
+
+        // Calculate edge endpoints
+        const edge1 = {
+          x: center.x + dirToVP1.x * scaleFactor1,
+          y: center.y + dirToVP1.y * scaleFactor1,
+        };
+
+        const edge2 = {
+          x: center.x + dirToVP2.x * scaleFactor2,
+          y: center.y + dirToVP2.y * scaleFactor2,
+        };
+
+        const edge3 = {
+          x: center.x + dirToVP3.x * scaleFactor3,
+          y: center.y + dirToVP3.y * scaleFactor3,
+        };
+
+        // Calculate more corners
+        const corner12 = calculateCorner(edge1, vp3X, vp3Y, edge2, vp3X, vp3Y);
+        const corner23 = calculateCorner(edge2, vp1X, vp1Y, edge3, vp1X, vp1Y);
+        const corner31 = calculateCorner(edge3, vp2X, vp2Y, edge1, vp2X, vp2Y);
+
+        const farCorner = calculateCorner(
+          corner12,
+          vp1X,
+          vp1Y,
+          corner23,
+          vp2X,
+          vp2Y
+        );
+
+        // Now draw all lines
+        drawLine(center, edge1);
+        drawLine(center, edge2);
+        drawLine(center, edge3);
+
+        drawLine(edge1, corner12);
+        drawLine(edge1, corner31);
+        drawLine(edge2, corner12);
+        drawLine(edge2, corner23);
+        drawLine(edge3, corner23);
+        drawLine(edge3, corner31);
+
+        drawLine(corner12, farCorner);
+        drawLine(corner23, farCorner);
+        drawLine(corner31, farCorner);
+
+        // Draw perspective lines
+        drawDashedLine(center, { x: vp1X, y: vp1Y });
+        drawDashedLine(edge2, { x: vp1X, y: vp1Y });
+        drawDashedLine(edge3, { x: vp1X, y: vp1Y });
+        drawDashedLine(corner23, { x: vp1X, y: vp1Y });
+
+        drawDashedLine(center, { x: vp2X, y: vp2Y });
+        drawDashedLine(edge1, { x: vp2X, y: vp2Y });
+        drawDashedLine(edge3, { x: vp2X, y: vp2Y });
+        drawDashedLine(corner31, { x: vp2X, y: vp2Y });
+
+        drawDashedLine(center, { x: vp3X, y: vp3Y });
+        drawDashedLine(edge1, { x: vp3X, y: vp3Y });
+        drawDashedLine(edge2, { x: vp3X, y: vp3Y });
+        drawDashedLine(corner12, { x: vp3X, y: vp3Y });
+      }
+
+      // Helper function to calculate corner points
+      function calculateCorner(point1, vp1X, vp1Y, point2, vp2X, vp2Y) {
+        // Calculate slopes
+        const m1 = (vp1Y - point1.y) / (vp1X - point1.x);
+        const m2 = (vp2Y - point2.y) / (vp2X - point2.x);
+
+        // Calculate y-intercepts
+        const b1 = point1.y - m1 * point1.x;
+        const b2 = point2.y - m2 * point2.x;
+
+        // Calculate intersection
+        const x = (b2 - b1) / (m1 - m2);
+        const y = m1 * x + b1;
+
+        return { x, y };
+      }
+
+      function drawLine(p1, p2) {
+        const material = new THREE.LineBasicMaterial({
+          color: 0x000000,
+          linewidth: 2,
+        });
+        const geometry = new THREE.BufferGeometry().setFromPoints([
+          new THREE.Vector3(p1.x, p1.y, 0),
+          new THREE.Vector3(p2.x, p2.y, 0),
+        ]);
+        const line = new THREE.Line(geometry, material);
+        cubeGroup.add(line);
+      }
+
+      function drawDashedLine(p1, p2) {
+        const material = new THREE.LineDashedMaterial({
+          color: 0x777777,
+          dashSize: 5,
+          gapSize: 5,
+          linewidth: 1,
+        });
+        const geometry = new THREE.BufferGeometry().setFromPoints([
+          new THREE.Vector3(p1.x, p1.y, 0),
+          new THREE.Vector3(p2.x, p2.y, 0),
+        ]);
+        const line = new THREE.Line(geometry, material);
+        line.computeLineDistances(); // Required for dashed lines
+        cubeGroup.add(line);
+      }
+
+      // Handle window resize
+      window.addEventListener("resize", () => {
+        const width = window.innerWidth;
+        const height = window.innerHeight;
+
+        camera.left = width / -2;
+        camera.right = width / 2;
+        camera.top = height / 2;
+        camera.bottom = height / -2;
+        camera.updateProjectionMatrix();
+
+        renderer.setSize(width, height);
+      });
+
+      // Slider event handlers
+      document.getElementById("vp1-x").addEventListener("input", (e) => {
+        vanishingPoints.vp1.x = parseInt(e.target.value);
+        document.getElementById("vp1-x-value").textContent = e.target.value;
+        drawPerspectiveScene();
+      });
+
+      document.getElementById("vp1-y").addEventListener("input", (e) => {
+        vanishingPoints.vp1.y = parseInt(e.target.value);
+        document.getElementById("vp1-y-value").textContent = e.target.value;
+        drawPerspectiveScene();
+      });
+
+      document.getElementById("vp2-x").addEventListener("input", (e) => {
+        vanishingPoints.vp2.x = parseInt(e.target.value);
+        document.getElementById("vp2-x-value").textContent = e.target.value;
+        drawPerspectiveScene();
+      });
+
+      document.getElementById("vp2-y").addEventListener("input", (e) => {
+        vanishingPoints.vp2.y = parseInt(e.target.value);
+        document.getElementById("vp2-y-value").textContent = e.target.value;
+        drawPerspectiveScene();
+      });
+
+      document.getElementById("vp3-x").addEventListener("input", (e) => {
+        vanishingPoints.vp3.x = parseInt(e.target.value);
+        document.getElementById("vp3-x-value").textContent = e.target.value;
+        drawPerspectiveScene();
+      });
+
+      document.getElementById("vp3-y").addEventListener("input", (e) => {
+        vanishingPoints.vp3.y = parseInt(e.target.value);
+        document.getElementById("vp3-y-value").textContent = e.target.value;
+        drawPerspectiveScene();
+      });
+
+      // Button handlers
+      document.getElementById("one-point").addEventListener("click", () => {
+        perspectiveType = "one-point";
+        updatePerspectiveButtons();
+        document.getElementById("vp2-controls").style.display = "none";
+        document.getElementById("vp2-controls-y").style.display = "none";
+        document.getElementById("vp3-controls").style.display = "none";
+        document.getElementById("vp3-controls-y").style.display = "none";
+        drawPerspectiveScene();
+      });
+
+      document.getElementById("two-point").addEventListener("click", () => {
+        perspectiveType = "two-point";
+        updatePerspectiveButtons();
+        document.getElementById("vp2-controls").style.display = "block";
+        document.getElementById("vp2-controls-y").style.display = "block";
+        document.getElementById("vp3-controls").style.display = "none";
+        document.getElementById("vp3-controls-y").style.display = "none";
+        drawPerspectiveScene();
+      });
+
+      document.getElementById("three-point").addEventListener("click", () => {
+        perspectiveType = "three-point";
+        updatePerspectiveButtons();
+        document.getElementById("vp2-controls").style.display = "block";
+        document.getElementById("vp2-controls-y").style.display = "block";
+        document.getElementById("vp3-controls").style.display = "block";
+        document.getElementById("vp3-controls-y").style.display = "block";
+        drawPerspectiveScene();
+      });
+
+      document.getElementById("reset-vps").addEventListener("click", () => {
+        vanishingPoints = {
+          vp1: { x: 300, y: 0 },
+          vp2: { x: -300, y: 0 },
+          vp3: { x: 0, y: 300 },
+        };
+
+        document.getElementById("vp1-x").value = 300;
+        document.getElementById("vp1-y").value = 0;
+        document.getElementById("vp2-x").value = -300;
+        document.getElementById("vp2-y").value = 0;
+        document.getElementById("vp3-x").value = 0;
+        document.getElementById("vp3-y").value = 300;
+
+        document.getElementById("vp1-x-value").textContent = "300";
+        document.getElementById("vp1-y-value").textContent = "0";
+        document.getElementById("vp2-x-value").textContent = "-300";
+        document.getElementById("vp2-y-value").textContent = "0";
+        document.getElementById("vp3-x-value").textContent = "0";
+        document.getElementById("vp3-y-value").textContent = "300";
+
+        drawPerspectiveScene();
+      });
+
+      function updatePerspectiveButtons() {
+        document.getElementById("one-point").classList.remove("active-button");
+        document.getElementById("two-point").classList.remove("active-button");
+        document
+          .getElementById("three-point")
+          .classList.remove("active-button");
+
+        document.getElementById(perspectiveType).classList.add("active-button");
+      }
+
+      // Draw initial scene
+      drawPerspectiveScene();
+
+      // Animation loop
+      function animate() {
+        requestAnimationFrame(animate);
+        renderer.render(scene, camera);
+      }
+
+      animate();
+    </script>
+  </body>
+</html> -->
+
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Colored Perspective Visualization</title>
+    <link rel="stylesheet" href="style.css" />
+  </head>
+  <body>
+    <div id="controls">
+      <h3>Perspective Type</h3>
+      <button id="one-point" class="active-button">One-Point</button>
+      <button id="two-point">Two-Point</button>
+      <button id="three-point">Three-Point</button>
+
+      <label for="shape-select">Select Shape:</label>
+      <select id="shape-select">
+        <option value="cube">Cube</option>
+        <!-- <option value="cone">Cone</option>
+        <option value="torus">Torus</option> -->
+      </select>
+
+      <h3>Vanishing Points</h3>
+      <button id="reset-vps">Reset Vanishing Points</button>
+      <div>
+        <p>Drag sliders to adjust vanishing points:</p>
+        <div>
+          <label for="vp1-x">VP1 X: </label>
+          <input type="range" id="vp1-x" min="-500" max="500" value="300" />
+          <span id="vp1-x-value">300</span>
+        </div>
+        <div>
+          <label for="vp1-y">VP1 Y: </label>
+          <input type="range" id="vp1-y" min="-500" max="500" value="0" />
+          <span id="vp1-y-value">0</span>
+        </div>
+        <div id="vp2-controls" style="display: none">
+          <label for="vp2-x">VP2 X: </label>
+          <input type="range" id="vp2-x" min="-500" max="500" value="-300" />
+          <span id="vp2-x-value">-300</span>
+        </div>
+        <div id="vp2-controls-y" style="display: none">
+          <label for="vp2-y">VP2 Y: </label>
+          <input type="range" id="vp2-y" min="-500" max="500" value="0" />
+          <span id="vp2-y-value">0</span>
+        </div>
+        <div id="vp3-controls" style="display: none">
+          <label for="vp3-x">VP3 X: </label>
+          <input type="range" id="vp3-x" min="-500" max="500" value="0" />
+          <span id="vp3-x-value">0</span>
+        </div>
+        <div id="vp3-controls-y" style="display: none">
+          <label for="vp3-y">VP3 Y: </label>
+          <input type="range" id="vp3-y" min="-500" max="500" value="300" />
+          <span id="vp3-y-value">300</span>
+        </div>
+      </div>
+    </div>
+
+    <div id="instructions">
+      <p>
+        Use the sliders to adjust vanishing points and observe how the colored
+        cube's perspective changes
+      </p>
+    </div>
+
+    <canvas id="canvas"></canvas>
+
+    <script type="importmap">
+      {
+        "imports": {
+          "three": "https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.module.js"
+        }
+      }
+    </script>
+
+    <!-- ✅ Only load ONE script statically -->
+    <script type="module" src="script.js"></script>
+  </body>
+</html>
