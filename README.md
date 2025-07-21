@@ -11,7 +11,6 @@ A web application for interactive visualization of **3D shapes** with both **ort
 - [**Getting Started**](#getting-started)
 - [**Usage**](#usage)
 - [**Contributing**](#contributing)
-- [**License**](#license)
 
 ## **Demo Overview**
 **Orthographic & Perspective Projections Viewer** is a visual learning tool that allows users to:
@@ -29,7 +28,9 @@ A web application for interactive visualization of **3D shapes** with both **ort
 - **Educational Tooltips:** Helpful text and instructions for learning and experimentation.
 
 ## **Screenshots**
-*(Include screenshots or image links here if available for visual context)*
+<img width="1917" height="921" alt="image" src="https://github.com/user-attachments/assets/7c2895f6-2676-4123-bd1b-d03091a43b39" />
+
+https://github.com/user-attachments/assets/b6434cb8-2788-40c1-b9ea-278048c04505
 
 - **Orthographic Projections View:**  
   - Shape selector dropdown (cube, sphere, etc.)
@@ -42,4 +43,35 @@ A web application for interactive visualization of **3D shapes** with both **ort
   - Interactive diagram that updates in real time
 
 ## **Project Structure**
+  - index.html ->   # Main landing / shape selection & orthographic views
+  - ortho.html ->   # Orthographic projections view
+  - pres.html  ->   # Perspective projections/vanishing point controls
+  - script.js  ->   # Main logic for 3D rendering and UI
+  - style.css  ->   # Styles and layout
 
+## **Getting Started**
+1. **Clone or Download the Project**
+   git clone https://github.com/Prachi5791/Projections.git
+
+2. **Open HTML Files Directly**
+- Double-click `index.html`, or  
+- Use a local server for best results:
+  ```
+  npx serve .
+  ```
+- Open your browser to `http://localhost:5000` (or the port shown)
+
+*No build or complex setup needed—just HTML, CSS, and JS.*
+
+## **Usage**
+- **Shape Selection:** Use the dropdown to pick your geometric figure.
+- **Projection Views:**  
+- Explore real-time 3D and orthographic panels.
+- Use `Toggle Grid`, `Toggle Wireframe`, and `Toggle Boundaries` for visual preference.
+- **Perspective Controls:**  
+- Select between one-, two-, or three-point perspective.
+- Adjust vanishing points with the sliders and immediately see shape changes.
+
+## **Contributing**
+- Fork the repository, create your own branch, and open a pull request with improvements.
+- Suggest new shapes, features, UI upgrades, or educational enhancements.
